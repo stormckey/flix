@@ -1,0 +1,28 @@
+name: JAR on Demand
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build_jar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.feature_repo }}
+          ref: ${{ env.feature_ref }}
+      - name: Build
+        run: ./gradlew jar
+      - name: Upload feature phases results
+        uses: actions/upload-artifact@v4
+        with:
+          name: JAR
+          path: build/libs/flix.jar
