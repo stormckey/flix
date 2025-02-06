@@ -29,7 +29,7 @@ import java.nio.file.Path
 object ShowAstProvider {
 
   /**
-    * Returns a Path
+    * Returns the Path to the AST file.
     */
   def showAst()(implicit flix: Flix): Path = {
     val oldOpts = flix.options
