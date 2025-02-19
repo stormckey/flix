@@ -304,7 +304,7 @@ sealed trait Completion {
       val snippet = traitUsageKind match {
         case TraitUsageKind.Derivation => name
         case TraitUsageKind.Constraint => name + CompletionUtils.formatTParamsSnippet(List(trt.tparam ))
-        case TraitUsageKind.Implementation => name
+        case TraitUsageKind.Implementation => CompletionUtils.fmtInstanceSnippet(trt)
       }
       val label = traitUsageKind match {
         case TraitUsageKind.Derivation => name
@@ -317,6 +317,7 @@ sealed trait Completion {
         sortText            = Priority.toSortText(priority, name),
         textEdit            = TextEdit(context.range, snippet),
         documentation       = Some(trt.doc.text),
+        insertTextFormat    = InsertTextFormat.Snippet,
         kind                = CompletionItemKind.Interface,
         additionalTextEdits = additionalTextEdit
       )
@@ -454,7 +455,7 @@ sealed trait Completion {
         label            = s"$traitSym[...]",
         sortText         = Priority.toSortText(Priority.Highest, traitSym.toString),
         textEdit         = TextEdit(context.range, completion),
-        detail           = Some(InstanceCompleter.fmtTrait(trt)),
+        detail           = Some(CompletionUtils.fmtTrait(trt)),
         documentation    = Some(trt.doc.text),
         insertTextFormat = InsertTextFormat.Snippet,
         kind             = CompletionItemKind.Snippet
