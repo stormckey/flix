@@ -398,14 +398,14 @@ object CompletionUtils {
     s"    pub def ${sig.sym.name}($fparams): $retTpe$eff = ???"
   }
 
-  def fmtInstanceSnippet(trt: TypedAst.Trait)(implicit flix: Flix): String = {
+  def fmtInstanceSnippet(trt: TypedAst.Trait, qualified: Boolean)(implicit flix: Flix): String = {
     val instanceHole = "${1:t}"
     val holes: Map[Symbol, String] = {
       (trt.tparam.sym -> instanceHole) +:
         trt.assocs.zipWithIndex.map { case (a, i) => a.sym -> s"$$${i + 2}" }
     }.toMap
 
-    val traitSym = trt.sym
+    val traitName = if (qualified) trt.sym.toString else trt.sym.name
     val signatures = trt.sigs.filter(_.exp.isEmpty)
 
     val body = {
@@ -413,7 +413,7 @@ object CompletionUtils {
         signatures.map(s => fmtSignature(s, holes))
     }.mkString("\n\n")
 
-    s"$traitSym[$instanceHole] {\n\n$body\n\n}\n"
+    s"$traitName[$instanceHole] {\n\n$body\n\n}\n"
   }
 
   /**
