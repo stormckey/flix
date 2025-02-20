@@ -292,7 +292,7 @@ sealed trait Completion {
         additionalTextEdits = additionalTextEdit
       )
 
-    case Completion.TraitCompletion(trt, traitUsageKind, ap, qualified, inScope) =>
+    case Completion.TraitCompletion(trt, ap, qualified, inScope, withTypeParameter) =>
       val qualifiedName = trt.sym.toString
       val name = if (qualified) qualifiedName else trt.sym.name
       val description = if(!qualified) {
@@ -301,16 +301,30 @@ sealed trait Completion {
       val labelDetails = CompletionItemLabelDetails(None, description)
       val additionalTextEdit = if (inScope) Nil else List(Completion.mkTextEdit(ap, s"use $qualifiedName"))
       val priority: Priority = if (inScope) Priority.High else Priority.Lower
-      val snippet = traitUsageKind match {
-        case TraitUsageKind.Derivation => name
-        case TraitUsageKind.Constraint => name + CompletionUtils.formatTParamsSnippet(List(trt.tparam ))
-        case TraitUsageKind.Implementation => CompletionUtils.fmtInstanceSnippet(trt)
-      }
-      val label = traitUsageKind match {
-        case TraitUsageKind.Derivation => name
-        case TraitUsageKind.Constraint => name + CompletionUtils.formatTParams(List(trt.tparam))
-        case TraitUsageKind.Implementation => name + CompletionUtils.formatTParams(List(trt.tparam))
-      }
+      val label = if (withTypeParameter) name + CompletionUtils.formatTParams(List(trt.tparam)) else name
+      val snippet = if (withTypeParameter) name + CompletionUtils.formatTParamsSnippet(List(trt.tparam)) else name
+      CompletionItem(
+        label               = label,
+        labelDetails        = Some(labelDetails),
+        sortText            = Priority.toSortText(priority, name),
+        textEdit            = TextEdit(context.range, snippet),
+        documentation       = Some(trt.doc.text),
+        insertTextFormat    = InsertTextFormat.Snippet,
+        kind                = CompletionItemKind.Interface,
+        additionalTextEdits = additionalTextEdit
+      )
+
+    case Completion.InstanceCompletion(trt, ap, qualified, inScope) =>
+      val qualifiedName = trt.sym.toString
+      val name = if (qualified) qualifiedName else trt.sym.name
+      val label = name + CompletionUtils.formatTParams(List(trt.tparam))
+      val description = if(!qualified) {
+        Some(if (inScope) qualifiedName else s"use $qualifiedName")
+      } else None
+      val labelDetails = CompletionItemLabelDetails(None, description)
+      val additionalTextEdit = if (inScope) Nil else List(Completion.mkTextEdit(ap, s"use $qualifiedName"))
+      val priority: Priority = if (inScope) Priority.High else Priority.Lower
+      val snippet = CompletionUtils.fmtInstanceSnippet(trt)
       CompletionItem(
         label               = label,
         labelDetails        = Some(labelDetails),
@@ -447,18 +461,6 @@ sealed trait Completion {
         textEdit            = TextEdit(context.range, name),
         kind                = CompletionItemKind.Module,
         additionalTextEdits = additionalTextEdit
-      )
-
-    case Completion.InstanceCompletion(trt, completion) =>
-      val traitSym = trt.sym
-      CompletionItem(
-        label            = s"$traitSym[...]",
-        sortText         = Priority.toSortText(Priority.Highest, traitSym.toString),
-        textEdit         = TextEdit(context.range, completion),
-        detail           = Some(CompletionUtils.fmtTrait(trt)),
-        documentation    = Some(trt.doc.text),
-        insertTextFormat = InsertTextFormat.Snippet,
-        kind             = CompletionItemKind.Snippet
       )
 
     case Completion.UseEnumCompletion(name) =>
@@ -812,13 +814,23 @@ object Completion {
   /**
     * Represents a trait completion
     *
-    * @param trt            trait struct construct.
-    * @param traitUsageKind the kind of usage of the trait.
+    * @param trt                trait construct.
+    * @param ap                 the anchor position for the use statement.
+    * @param qualified          indicate whether to use a qualified label.
+    * @param inScope            indicate whether to the trait is inScope.
+    * @param withTypeParameter  indicate whether to include the type parameter in the completion.
+    */
+  case class TraitCompletion(trt: TypedAst.Trait, ap: AnchorPosition, qualified: Boolean, inScope: Boolean, withTypeParameter: Boolean) extends Completion
+
+  /**
+    * Represents a trait completion
+    *
+    * @param trt            trait construct.
     * @param ap             the anchor position for the use statement.
     * @param qualified      indicate whether to use a qualified label.
-    * @param inScope        indicate whether to the enum is inScope.
+    * @param inScope        indicate whether to the trait is inScope.
     */
-  case class TraitCompletion(trt: TypedAst.Trait, traitUsageKind: TraitUsageKind, ap: AnchorPosition, qualified: Boolean, inScope: Boolean) extends Completion
+  case class InstanceCompletion(trt: TypedAst.Trait, ap: AnchorPosition, qualified: Boolean, inScope: Boolean) extends Completion
 
   /**
     * Represents a Enum completion
@@ -881,14 +893,6 @@ object Completion {
     * @param inScope    indicate whether to the signature is inScope.
     */
   case class ModuleCompletion(module: Symbol.ModuleSym, ap: AnchorPosition, qualified: Boolean, inScope: Boolean) extends Completion
-
-  /**
-    * Represents an Instance completion (based on traits)
-    *
-    * @param trt        the trait.
-    * @param completion the completion string (used as information for TextEdit).
-    */
-  case class InstanceCompletion(trt: TypedAst.Trait, completion: String) extends Completion
 
   /**
     * Represents a Use Enum completion.
